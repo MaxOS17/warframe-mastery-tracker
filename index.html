@@ -111,7 +111,11 @@ button.action {
   <br><br>
   <input type="text" id="search" placeholder="Search...">
   <label><input type="checkbox" id="missingOnly"> Missing only</label>
-
+  <label>
+  <input type="checkbox" id="excludeFounders" onchange="render()">
+  Exclude Founder Items
+</label>
+  <div id="countInfo" style="margin-bottom:10px;"></div>
   <div id="list"></div>
 </div>
 
@@ -237,12 +241,17 @@ function getMasteryXP(item) {
 
   return 0;
 }
+function isFounder(item) {
+  return item.founder === "TRUE";
+}
 
+ 
 function render() {
 
   const items = data[current];
   const search = document.getElementById("search").value.toLowerCase();
   const missingOnly = document.getElementById("missingOnly").checked;
+  const excludeFounders = document.getElementById("excludeFounders")?.checked;
 
   let categoryTotalXP = 0;
   let categoryEarnedXP = 0;
@@ -271,6 +280,7 @@ function render() {
 
 
   // 🔹 CATEGORY XP CALCULATION
+
   items.forEach(item => {
     const xp = getMasteryXP(item);
     categoryTotalXP += xp;
@@ -290,29 +300,35 @@ function render() {
   // 🔹 RENDER ITEM LIST
   const list = document.getElementById("list");
   list.innerHTML = "";
-
+let visibleCount = 0;
+let masteredCount = 0;
   items.forEach(item => {
-    const name = item.name;
-    const xp = getMasteryXP(item);
-    const isMastered = mastery[name] === true;
+  const name = item.name;
+  const xp = getMasteryXP(item);
+  const isMastered = mastery[name] === true;
 
-    if (missingOnly && isMastered) return;
-    if (search && !name.toLowerCase().includes(search)) return;
+  if (missingOnly && isMastered) return;
+  if (search && !name.toLowerCase().includes(search)) return;
+  if (excludeFounders && isFounder(item)) return;
 
-    const div = document.createElement("div");
-    div.className = "item " + (isMastered ? "mastered" : "missing");
-    div.textContent = `${name} (${xp} XP)`;
+  visibleCount++;
+  if (isMastered) masteredCount++;
 
-    div.onclick = () => {
-      mastery[name] = !isMastered;
-      save();
-      render();
-    };
+  const div = document.createElement("div");
+  div.className = "item " + (isMastered ? "mastered" : "missing");
+  div.textContent = `${name} (${xp} XP)`;
 
-    list.appendChild(div);
-  });
+  div.onclick = () => {
+    mastery[name] = !isMastered;
+    save();
+    render();
+  };
+
+  list.appendChild(div);
+});
 }
-
+document.getElementById("countInfo").innerText =
+  `Showing ${visibleCount} | Mastered ${masteredCount} | Missing ${visibleCount - masteredCount}`;
 
 function markAll() {
   data[current].forEach(name => mastery[name] = true);
@@ -370,3 +386,4 @@ load();
 </script>
 </body>
 </html>
+
