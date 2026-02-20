@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Warframe Mastery Tracker</title>
+<style>
+:root {
+  --bg: #111;
+  --panel: #1a1a1a;
+  --text: #e6e6e6;
+  --accent: #c6a75e;
+  --missing: #c44;
+  --mastered: #5cc45c;
+}
+
+body.light {
+  --bg: #f5f5f5;
+  --panel: #ffffff;
+  --text: #111;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 20px;
+  max-width: 1000px;
+  margin: auto;
+}
+
+h1 {
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.tabs button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  margin-right: 5px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: var(--accent);
+  color: black;
+}
+
+.panel {
+  background: var(--panel);
+  padding: 15px;
+  margin-top: 15px;
+  border: 1px solid #333;
+}
+
+.item {
+  padding: 6px;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+}
+
+.mastered { color: var(--mastered); }
+.missing { color: var(--missing); }
+
+.progress-bar {
+  height: 8px;
+  background: #333;
+  margin: 8px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+}
+
+button.action {
+  margin-right: 5px;
+  padding: 5px 10px;
+  background: var(--panel);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<h1>WARFRAME MASTERY TRACKER</h1>
+
+<div id="globalProgress"></div>
+<div class="progress-bar">
+  <div id="globalFill" class="progress-fill"></div>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="panel">
+  <div id="categoryProgress"></div>
+  <div class="progress-bar">
+    <div id="categoryFill" class="progress-fill"></div>
+  </div>
+
+  <button class="action" onclick="markAll()">Mark All</button>
+  <button class="action" onclick="clearAll()">Clear All</button>
+  <button class="action" onclick="exportData()">Export</button>
+  <button class="action" onclick="importData()">Import</button>
+  <button class="action" onclick="toggleDark()">Toggle Theme</button>
+
+  <br><br>
+  <input type="text" id="search" placeholder="Search...">
+  <label><input type="checkbox" id="missingOnly"> Missing only</label>
+
+  <div id="list"></div>
+</div>
+
+<script>
+
+const sheets = [
+  {
+    name: "Warframes",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=1471399510#gid=1471399510"
+  },
+  {
+    name: "Primary",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=0"
+  },
+  {
+    name: "Secondary",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=486135003"
+  },
+  {
+    name: "Meelee",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=1681992218#gid=1681992218"
+  },
+  {
+    name: "Sentinels",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=844176574#gid=844176574"
+  },
+  {
+    name: "Robotic",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=1780672314#gid=1780672314"
+  },
+  {
+    name: "Hound",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=2022555459#gid=2022555459"
+  },
+  {
+    name: "Beast",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=624636929#gid=624636929"
+  },
+  {
+    name: "Archgun",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=733786105#gid=733786105"
+  },
+  {
+    name: "Archmelee",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=1183175043#gid=1183175043"
+  },
+  {
+    name: "AMP",
+    url: "https://docs.google.com/spreadsheets/d/1rTwvQVyo-1y4GbtYc9Z4pUabgQHbXy0TJxS65ZoBKhU/export?format=csv&gid=1560002126#gid=1560002126L"
+  },
+
+];
+
+const STORAGE_KEY = "wf_mastery_data";
+
+let mastery = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+let data = {};
+let current = null;
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(mastery));
+}
+
+function parseCSV(text) {
+  return text.split("\n")
+    .slice(1)
+    .map(row => {
+      const cols = row.split(",");
+      const name = cols[0]?.trim();
+      const type = cols[1]?.trim();
+      const variant = cols[2]?.trim();
+
+      if (!name || !type) return null;
+
+      return { name, type, variant };
+    })
+    .filter(Boolean);
+}
+
+
+async function load() {
+  for (const sheet of sheets) {
+    const res = await fetch(sheet.url);
+    const text = await res.text();
+    data[sheet.name] = parseCSV(text);
+  }
+  current = sheets[0].name;
+  renderTabs();
+  render();
+}
+
+function renderTabs() {
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+  sheets.forEach(s => {
+    const btn = document.createElement("button");
+    btn.textContent = s.name;
+    if (s.name === current) btn.classList.add("active");
+    btn.onclick = () => {
+      current = s.name;
+      renderTabs();
+      render();
+    };
+    tabs.appendChild(btn);
+  });
+}
+
+function getMasteryXP(item) {
+  if (item.type === "Warframe") return 6000;
+  if (item.type === "Companion") return 6000;
+  if (item.type === "Necramech") return 6000;
+
+  if (item.type === "Weapon") {
+    if (
+      item.variant === "Kuva" ||
+      item.variant === "Tenet" ||
+      item.variant === "Coda"
+    ) {
+      return 4000;
+    }
+    return 3000;
+  }
+
+  return 0;
+}
+
+function render() {
+
+  const items = data[current];
+  const search = document.getElementById("search").value.toLowerCase();
+  const missingOnly = document.getElementById("missingOnly").checked;
+
+  let categoryTotalXP = 0;
+  let categoryEarnedXP = 0;
+
+  let totalXP = 0;
+  let earnedXP = 0;
+
+  // 🔹 GLOBAL XP CALCULATION
+  Object.values(data).forEach(category => {
+    category.forEach(item => {
+      const xp = getMasteryXP(item);
+      totalXP += xp;
+      if (mastery[item.name]) earnedXP += xp;
+    });
+  });
+
+  const missingXP = totalXP - earnedXP;
+  const globalPercent = totalXP > 0
+    ? Math.round(earnedXP / totalXP * 100)
+    : 0;
+
+  document.getElementById("globalProgress").innerText =
+    `GLOBAL XP: ${earnedXP.toLocaleString()} / ${totalXP.toLocaleString()} (${globalPercent}%) | Missing: ${missingXP.toLocaleString()}`;
+
+  document.getElementById("globalFill").style.width = globalPercent + "%";
+
+
+  // 🔹 CATEGORY XP CALCULATION
+  items.forEach(item => {
+    const xp = getMasteryXP(item);
+    categoryTotalXP += xp;
+    if (mastery[item.name]) categoryEarnedXP += xp;
+  });
+
+  const categoryPercent = categoryTotalXP > 0
+    ? Math.round(categoryEarnedXP / categoryTotalXP * 100)
+    : 0;
+
+  document.getElementById("categoryProgress").innerText =
+    `${current}: ${categoryEarnedXP.toLocaleString()} / ${categoryTotalXP.toLocaleString()} XP (${categoryPercent}%)`;
+
+  document.getElementById("categoryFill").style.width = categoryPercent + "%";
+
+
+  // 🔹 RENDER ITEM LIST
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  items.forEach(item => {
+    const name = item.name;
+    const xp = getMasteryXP(item);
+    const isMastered = mastery[name] === true;
+
+    if (missingOnly && isMastered) return;
+    if (search && !name.toLowerCase().includes(search)) return;
+
+    const div = document.createElement("div");
+    div.className = "item " + (isMastered ? "mastered" : "missing");
+    div.textContent = `${name} (${xp} XP)`;
+
+    div.onclick = () => {
+      mastery[name] = !isMastered;
+      save();
+      render();
+    };
+
+    list.appendChild(div);
+  });
+}
+
+
+function markAll() {
+  data[current].forEach(name => mastery[name] = true);
+  save();
+  render();
+}
+
+function clearAll() {
+  data[current].forEach(name => mastery[name] = false);
+  save();
+  render();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(mastery, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "wf_mastery_backup.json";
+  a.click();
+}
+
+function importData() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = e => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      mastery = JSON.parse(reader.result);
+      save();
+      render();
+    };
+    reader.readAsText(e.target.files[0]);
+  };
+  input.click();
+}
+
+function toggleDark() {
+  document.body.classList.toggle("light");
+}
+
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("missingOnly").addEventListener("change", render);
+
+document.addEventListener("keydown", e => {
+  if (e.key === "/") { e.preventDefault(); document.getElementById("search").focus(); }
+  if (e.key === "m") document.getElementById("missingOnly").click();
+  if (e.key === "d") toggleDark();
+  if (e.key === "e") exportData();
+  if (e.key === "i") importData();
+});
+
+load();
+
+</script>
+</body>
+</html>
