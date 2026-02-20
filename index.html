@@ -330,10 +330,10 @@ let masteredCount = 0;
 
   list.appendChild(div);
 });
-}
+
 document.getElementById("countInfo").innerText =
   `Showing ${visibleCount} | Mastered ${masteredCount} | Missing ${visibleCount - masteredCount}`;
-
+}
 function markAll() {
   data[current].forEach(name => mastery[name] = true);
   save();
@@ -390,5 +390,6 @@ load();
 </script>
 </body>
 </html>
+
 
 
